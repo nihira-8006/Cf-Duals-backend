@@ -20,3 +20,13 @@ CREATE TABLE participants (
 
 CREATE INDEX idx_rooms_code ON rooms(code);
 CREATE INDEX idx_rooms_status ON rooms(status);
+
+
+CREATE TABLE IF NOT EXISTS problems (
+    contest_id INT NOT NULL,
+    index VARCHAR(10) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    rating INT,
+    tags TEXT[],
+    PRIMARY KEY (contest_id, index)
+);

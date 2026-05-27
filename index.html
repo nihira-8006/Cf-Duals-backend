@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CF Duels - Test Client</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #1a1a1a; color: #fff; }
+        .card { background: #2a2a2a; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
+        input, button { padding: 0.5rem; margin-right: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; border: 1px solid #444; }
+        input { background: #333; color: white; }
+        button { background: #4CAF50; color: white; border: none; cursor: pointer; }
+        button:hover { background: #45a049; }
+        pre { background: #111; padding: 1rem; border-radius: 4px; overflow-x: auto; color: #00ff00; }
+    </style>
+</head>
+<body>
+
+    <h1>Codeforces Duel - API Tester</h1>
+
+    <div class="card">
+        <h2>1. Create Room (Player 1)</h2>
+        <input type="text" id="p1-handle" placeholder="Player 1 Handle (e.g. tourist)">
+        <button onclick="createRoom()">Create Room</button>
+        <pre id="create-log">Waiting...</pre>
+    </div>
+
+    <div class="card">
+        <h2>2. Join Room (Player 2)</h2>
+        <input type="text" id="p2-handle" placeholder="Player 2 Handle">
+        <input type="text" id="join-code" placeholder="Room Code">
+        <button onclick="joinRoom()">Join Room</button>
+        <pre id="join-log">Waiting...</pre>
+    </div>
+
+    <div class="card">
+        <h2>3. Fetch Fair Problem</h2>
+        <input type="text" id="target-rating" placeholder="Target Rating (e.g. 1500)">
+        <button onclick="startDuel()">Get Problem</button>
+        <pre id="problem-log">Waiting...</pre>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api'; // CHANGE PORT IF NEEDED
+        let currentRoomId = '';
+
+        async function createRoom() {
+            const handle = document.getElementById('p1-handle').value;
+            try {
+                const res = await fetch(`${API_BASE}/rooms/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ handle })
+                });
+                const data = await res.json();
+                currentRoomId = data.roomId; 
+                document.getElementById('join-code').value = data.roomCode; // Auto-fill for convenience
+                document.getElementById('create-log').innerText = JSON.stringify(data, null, 2);
+            } catch (err) {
+                document.getElementById('create-log').innerText = "Error: " + err.message;
+            }
+        }
+
+        async function joinRoom() {
+            const handle = document.getElementById('p2-handle').value;
+            const roomCode = document.getElementById('join-code').value;
+            try {
+                const res = await fetch(`${API_BASE}/rooms/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ handle, roomCode })
+                });
+                const data = await res.json();
+                document.getElementById('join-log').innerText = JSON.stringify(data, null, 2);
+            } catch (err) {
+                document.getElementById('join-log').innerText = "Error: " + err.message;
+            }
+        }
+
+        async function startDuel() {
+            const handle1 = document.getElementById('p1-handle').value;
+            const handle2 = document.getElementById('p2-handle').value;
+            const targetRating = parseInt(document.getElementById('target-rating').value);
+
+            if (!currentRoomId) return alert("Create a room first to get a Room ID!");
+
+            try {
+                const res = await fetch(`${API_BASE}/duels/${currentRoomId}/next`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ handle1, handle2, targetRating })
+                });
+                const data = await res.json();
+                document.getElementById('problem-log').innerText = JSON.stringify(data, null, 2);
+            } catch (err) {
+                document.getElementById('problem-log').innerText = "Error: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

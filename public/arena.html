@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CF Duels · Arena</title>
+  <link rel="stylesheet" href="/css/output.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Teko:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --green:    #00ff88;
+      --amber:    #ffb700;
+      --red:      #ff3b3b;
+      --blue:     #4fa3ff;
+      --bg:       #080c0f;
+      --surface:  #0d1318;
+      --surface-2:#111920;
+      --border:   #1a2530;
+      --muted:    #3a4a58;
+      --text:     #c8d8e4;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      animation: gridDrift 20s linear infinite;
+    }
+
+    @keyframes gridDrift {
+      0%   { background-position: 0 0; }
+      100% { background-position: 48px 48px; }
+    }
+
+    /* ── Status Bar ───────────────────────────────────── */
+    .status-bar {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,12,15,0.9);
+      backdrop-filter: blur(6px);
+      flex-shrink: 0;
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .logo {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--amber); }
+
+    .room-code {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.3rem 0.7rem;
+    }
+
+    .room-code strong {
+      color: var(--amber);
+      font-weight: 400;
+      letter-spacing: 0.25em;
+    }
+
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .conn-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+
+    .conn-dot.connected    { background: var(--green); animation: pulse 2s ease-in-out infinite; }
+    .conn-dot.disconnected { background: var(--red); animation: none; }
+
+    #conn-label { color: var(--muted); transition: color 0.3s; }
+    #conn-label.connected    { color: var(--green); }
+    #conn-label.disconnected { color: var(--red); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+
+    /* ── Main Stage ───────────────────────────────────── */
+    .stage {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    /* All phases hidden by default — JS reveals one */
+    [data-phase] { display: none; }
+    [data-phase].active { display: flex; flex-direction: column; align-items: center; text-align: center; }
+
+    /* ── Shared phase styles ──────────────────────────── */
+    .phase-tag {
+      font-size: 0.62rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .phase-tag::before, .phase-tag::after {
+      content: '';
+      width: 24px;
+      height: 1px;
+      background: currentColor;
+      opacity: 0.5;
+    }
+
+    .phase-title {
+      font-family: 'Teko', sans-serif;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #e8f4ff;
+      line-height: 1;
+      margin-bottom: 0.75rem;
+    }
+
+    .phase-sub {
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+
+    /* ── Phase A: Waiting ─────────────────────────────── */
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 2rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Phase B: Opponent Joined ─────────────────────── */
+    .vs-block {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin: 1.5rem 0 2.5rem;
+    }
+
+    .player-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      min-width: 160px;
+    }
+
+    .player-chip .chip-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .player-chip .chip-handle {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--green);
+    }
+
+    .player-chip.opponent .chip-handle { color: var(--amber); }
+
+    .vs-label {
+      font-family: 'Teko', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    /* start button (host only) */
+    .btn-start {
+      background: var(--green);
+      color: #080c0f;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      padding: 0.9rem 2.5rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      position: relative;
+    }
+
+    .btn-start:hover:not(:disabled) { opacity: 0.88; }
+    .btn-start:active:not(:disabled) { transform: scale(0.98); }
+    .btn-start:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-start.loading .btn-text { opacity: 0; }
+    .btn-start.loading .btn-spin { display: block; }
+
+    .btn-spin {
+      display: none;
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(8,12,15,0.3);
+      border-top-color: #080c0f;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .waiting-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-top: 1rem;
+    }
+
+    /* ── Phase C: Live Duel ───────────────────────────── */
+    .problem-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--green);
+      padding: 2.5rem 3rem;
+      max-width: 560px;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+
+    .problem-rating {
+      display: inline-block;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green);
+      border: 1px solid var(--green);
+      padding: 0.25rem 0.6rem;
+      margin-bottom: 1rem;
+      opacity: 0.8;
+    }
+
+    .problem-name {
+      font-family: 'Teko', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #e8f4ff;
+      line-height: 1.1;
+      margin-bottom: 0.5rem;
+    }
+
+    .problem-id {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+
+    .btn-solve {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 0.75rem 1.5rem;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-solve:hover {
+      background: var(--green);
+      color: #080c0f;
+    }
+
+    /* live elapsed timer */
+    .live-timer {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .live-timer span { color: var(--amber); }
+
+    /* ── Phase D: Results ─────────────────────────────── */
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3rem;
+      max-width: 480px;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+
+    .trophy { font-size: 3rem; margin-bottom: 1rem; }
+
+    .winner-handle {
+      font-family: 'Teko', sans-serif;
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 0.5rem;
+    }
+
+    .result-meta {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 0.7rem 1.4rem;
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .btn-home:hover {
+      border-color: var(--text);
+      color: #e8f4ff;
+    }
+
+    /* ── Phase E: Abandoned ───────────────────────────── */
+    .abandon-icon {
+      font-family: 'Teko', sans-serif;
+      font-size: 4rem;
+      font-weight: 700;
+      color: var(--red);
+      opacity: 0.6;
+      margin-bottom: 1rem;
+    }
+
+    #abandon-reason {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 2rem;
+      max-width: 360px;
+    }
+
+    /* ── Phase transitions ────────────────────────────── */
+    @keyframes phaseIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    [data-phase].active {
+      animation: phaseIn 0.35s ease forwards;
+    }
+
+    /* ── Bottom strip ─────────────────────────────────── */
+    .bottom-strip {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="grid-bg"></div>
+
+  <!-- ── Status Bar ──────────────────────────────────────── -->
+  <header class="status-bar">
+    <div class="status-left">
+      <a href="index.html" class="logo">CF <span>DUELS</span></a>
+      <div class="room-code">
+        ROOM&nbsp;<strong id="room-code-display">------</strong>
+      </div>
+    </div>
+    <div class="status-right">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span id="conn-label">Connecting</span>
+    </div>
+  </header>
+
+  <!-- ── Main Stage ──────────────────────────────────────── -->
+  <main class="stage">
+
+    <!-- Phase A: Waiting for opponent -->
+    <div data-phase="A">
+      <div class="phase-tag">Phase 01 · Lobby</div>
+      <div class="spinner"></div>
+      <h2 class="phase-title">Waiting for<br/>Opponent</h2>
+      <p class="phase-sub">Share your room code to invite a challenger.</p>
+    </div>
+
+    <!-- Phase B: Opponent joined — ready to start -->
+    <div data-phase="B">
+      <div class="phase-tag">Phase 02 · Ready</div>
+      <h2 class="phase-title">Opponent<br/>Connected</h2>
+
+      <div class="vs-block">
+        <div class="player-chip">
+          <div class="chip-label">You</div>
+          <div class="chip-handle" id="b-my-handle">---</div>
+        </div>
+        <div class="vs-label">VS</div>
+        <div class="player-chip opponent">
+          <div class="chip-label">Opponent</div>
+          <div class="chip-handle" id="b-opp-handle">---</div>
+        </div>
+      </div>
+
+      <!-- Host sees start button; joiner sees waiting label -->
+      <div id="host-controls" style="display:none;">
+        <button id="start-btn" class="btn-start">
+          <span class="btn-text">Start Duel →</span>
+          <span class="btn-spin"></span>
+        </button>
+      </div>
+      <div id="joiner-waiting" style="display:none;">
+        <p class="waiting-label">⌛ Waiting for host to start the duel...</p>
+      </div>
+    </div>
+
+    <!-- Phase C: Duel live -->
+    <div data-phase="C">
+      <div class="phase-tag">Phase 03 · Live</div>
+
+      <div class="problem-card">
+        <div class="problem-rating" id="c-rating">Rating: ---</div>
+        <div class="problem-name" id="c-name">Loading Problem...</div>
+        <div class="problem-id"  id="c-id">---</div>
+        <a id="c-cf-link" href="#" target="_blank" rel="noopener" class="btn-solve">
+          Solve on Codeforces ↗
+        </a>
+      </div>
+
+      <div class="live-timer">Elapsed: <span id="c-timer">00:00</span></div>
+    </div>
+
+    <!-- Phase D: Results -->
+    <div data-phase="D">
+      <div class="phase-tag">Phase 04 · Result</div>
+      <div class="trophy">🏆</div>
+      <div class="winner-handle" id="d-winner">---</div>
+      <div class="result-meta" id="d-meta">solved the problem</div>
+      <a href="index.html" class="btn-home">← Return to Dashboard</a>
+    </div>
+
+    <!-- Phase E: Abandoned / Error -->
+    <div data-phase="E">
+      <div class="phase-tag">Phase 05 · Abandoned</div>
+      <div class="abandon-icon">!</div>
+      <h2 class="phase-title">Duel Ended</h2>
+      <p id="abandon-reason">The connection was lost or the room was closed.</p>
+      <a href="index.html" class="btn-home">← Return to Dashboard</a>
+    </div>
+
+  </main>
+
+  <!-- ── Bottom strip ────────────────────────────────────── -->
+  <footer class="bottom-strip">
+    <span id="footer-phase">Phase: Initialising</span>
+    <span id="footer-handle">Handle: ---</span>
+  </footer>
+
+  <!-- Socket.IO client (CDN — swap for your bundled version if needed) -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <script type="module">
+    import { initSocket } from '/js/socket.js';
+    import { getRoom } from '/js/api.js';
+
+    // ── 1. Parse URL & session ────────────────────────────
+    const params   = new URLSearchParams(location.search);
+    const roomId   = params.get('roomId');
+    const roomCode = params.get('code');
+    const handle   = sessionStorage.getItem('cf_handle');
+    const isHost   = sessionStorage.getItem('cf_is_host') === 'true';
+    const rating   = Number(sessionStorage.getItem('cf_rating')) || 1200;
+
+    // Guard: if essential session data is missing, bail out
+    if (!roomId || !handle) {
+      showPhase('E', 'Session data missing. Please rejoin from the dashboard.');
+      // Still render static info if available
+    }
+
+    // ── 2. Static UI setup ───────────────────────────────
+    document.getElementById('room-code-display').textContent = roomCode || '------';
+    document.getElementById('footer-handle').textContent     = `Handle: ${handle || '---'}`;
+
+    // ── 3. Phase switcher ────────────────────────────────
+    function showPhase(phase, reason) {
+      document.querySelectorAll('[data-phase]').forEach(el => {
+        el.classList.toggle('active', el.dataset.phase === phase);
+      });
+      document.getElementById('footer-phase').textContent = `Phase: ${phase}`;
+
+      if (phase === 'E' && reason) {
+        document.getElementById('abandon-reason').textContent = reason;
+      }
+    }
+
+    // Start in Phase A
+    showPhase('A');
+
+    // ── 4. Connection status helpers ─────────────────────
+    function setConnStatus(state) {
+      // state: 'connecting' | 'connected' | 'disconnected'
+      const dot   = document.getElementById('conn-dot');
+      const label = document.getElementById('conn-label');
+      dot.className   = `conn-dot ${state}`;
+      label.className = state;
+      const labels = { connecting: 'Connecting', connected: 'Live', disconnected: 'Offline' };
+      label.textContent = labels[state] ?? state;
+    }
+
+    // ── 5. Opponent tracking ─────────────────────────────
+    let opponentHandle = null;
+
+    // ── 6. Phase B setup ─────────────────────────────────
+    function enterPhaseB(opponent) {
+      opponentHandle = opponent;
+      document.getElementById('b-my-handle').textContent  = handle;
+      document.getElementById('b-opp-handle').textContent = opponent;
+
+      if (isHost) {
+        document.getElementById('host-controls').style.display  = 'block';
+        document.getElementById('joiner-waiting').style.display = 'none';
+      } else {
+        document.getElementById('host-controls').style.display  = 'none';
+        document.getElementById('joiner-waiting').style.display = 'block';
+      }
+
+      showPhase('B');
+    }
+
+    // ── 7. Phase C setup ─────────────────────────────────
+    let timerInterval = null;
+
+    function enterPhaseC(problem) {
+      // problem: { name, contest_id, index, rating? }
+      const cfId   = `${problem.contest_id}${problem.index}`;
+      const cfLink = `https://codeforces.com/problemset/problem/${problem.contest_id}/${problem.index}`;
+
+      document.getElementById('c-name').textContent    = problem.name;
+      document.getElementById('c-id').textContent      = cfId;
+      document.getElementById('c-rating').textContent  = `Rating: ${problem.rating ?? rating}`;
+      document.getElementById('c-cf-link').href        = cfLink;
+
+      showPhase('C');
+
+      // Elapsed timer
+      const startMs = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startMs) / 1000);
+        const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const ss = String(elapsed % 60).padStart(2, '0');
+        document.getElementById('c-timer').textContent = `${mm}:${ss}`;
+      }, 1000);
+    }
+
+    // ── 8. Phase D setup ─────────────────────────────────
+    function enterPhaseD({ winner, message, problemId }) {
+      clearInterval(timerInterval);
+      document.getElementById('d-winner').textContent = winner;
+      document.getElementById('d-meta').textContent   = message || `solved ${problemId}`;
+      showPhase('D');
+    }
+
+    // ── 9. Rehydrate state on load/refresh ───────────────
+    // Catches the case where the user refreshes mid-duel
+// ── 9. Rehydrate state on load/refresh ───────────────
+    async function rehydrate() {
+      try {
+        const room = await getRoom(roomCode); 
+
+        if (room.status === 'ACTIVE' && room.problem) {
+          enterPhaseC(room.problem);
+        } else if (room.status === 'FINISHED' && room.winner) {
+          enterPhaseD({ winner: room.winner, message: 'solved the problem', problemId: '' });
+        } else if (room.participants && room.participants.length === 2) {
+          // NEW: If room has 2 people, find the opponent and jump to Phase B
+          const opponent = room.participants.find(p => p.handle !== handle);
+          if (opponent) {
+            enterPhaseB(opponent.handle);
+          }
+        }
+      } catch (e) {
+        console.warn("Rehydrate failed, relying on sockets:", e.message);
+      }
+    }
+
+    await rehydrate();
+
+    // ── 10. Init socket ──────────────────────────────────
+    const { emitStartDuel } = initSocket({
+      roomId,
+      handle,
+
+      onConnect() {
+        setConnStatus('connected');
+      },
+
+      onDisconnect(reason) {
+        setConnStatus('disconnected');
+        // Only switch to Phase E if not already in results
+        const activePhase = document.querySelector('[data-phase].active')?.dataset.phase;
+        if (activePhase !== 'D') {
+          showPhase('E', `Connection lost: ${reason}`);
+        }
+      },
+
+      onOpponentJoined(opponent) {
+        // room_update fires; fetch room to get both handles
+        enterPhaseB(opponent);
+      },
+
+      onDuelStarted(data) {
+        enterPhaseC(data.problem);
+      },
+
+      onDuelEnded(data) {
+        enterPhaseD(data);
+      },
+
+      onError(msg) {
+        showPhase('E', msg);
+      },
+    });
+
+    // ── 11. Start button (host only) ─────────────────────
+    document.getElementById('start-btn')?.addEventListener('click', () => {
+      if (!opponentHandle) return;
+
+      const btn = document.getElementById('start-btn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      emitStartDuel({
+        roomId,
+        handle1:      handle,
+        handle2:      opponentHandle,
+        targetRating: rating,
+      });
+    });
+
+  </script>
+
+</body>
+</html>

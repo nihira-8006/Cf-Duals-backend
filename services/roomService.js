@@ -3,7 +3,7 @@ const roomStore = require('../store/roomStore');
 const participantStore = require('../store/participantStore');
 const { generateRoomId, generateRoomCode } = require('../utils/roomGenerator');
 const { MAX_PLAYERS, ROOM_STATUS } = require('../config/constants');
-
+const { randomUUID } = require('crypto');
 const createRoom = async (handle) => {
     try {
         console.log('🔍 Creating room for handle:', handle);
@@ -41,10 +41,12 @@ const createRoom = async (handle) => {
         console.log('   ✅ Participant added');
 
         console.log('✅ Room created successfully');
-        
+        const sessionToken = randomUUID();
         return {
             roomId,
-            roomCode
+            roomCode,
+            sessionToken
+
         };
 
     } catch (error) {
@@ -130,6 +132,7 @@ const joinRoom = async (handle, roomCode) => {
         console.log('   ✅ Got', participants.length, 'participants');
 
         console.log('✅ Successfully joined room');
+        const sessionToken = randomUUID();
 
         return {
             roomId: room.id,
@@ -137,6 +140,7 @@ const joinRoom = async (handle, roomCode) => {
                 id: p.user_id,
                 handle: p.handle
             })),
+            sessionToken,
             status: updatedRoom.status  // ✅ Use updatedRoom.status
         };
 

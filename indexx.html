@@ -35,6 +35,13 @@
         <button onclick="joinRoom()">Join Room</button>
         <pre id="join-log">Waiting...</pre>
     </div>
+    <div class="card">
+        <h2>Arena Control</h2>
+        <input type="number" id="target-rating" placeholder="Target Rating (e.g., 1200)" value="1200">
+        <button class="btn-start" onclick="triggerStartDuel()">🚀 START DUEL</button>
+        <h3>Active Problem:</h3>
+        <pre id="problem-display">Waiting for match to start...</pre>
+    </div>
 
     <script>
         const API_BASE = 'http://localhost:3000/api'; 
@@ -49,7 +56,22 @@
             alertBox.style.display = 'block';
             alertBox.innerText = `📡 LIVE UPDATE: ${data.message}`;
         });
+        socket.on('duel_started', (data) => {
+        console.log("DUEL STARTED", data);
 
+        document.getElementById('problem-display').innerText =
+        JSON.stringify(data.problem, null, 2);
+});
+
+
+socket.on('duel_ended', (data) => {
+    const alertBox = document.getElementById('socket-alert');
+    alertBox.style.display = 'block';
+    alertBox.innerText = `🏆 ${data.message}`;
+
+    document.getElementById('problem-display').innerText =
+        `Winner: ${data.winner}\nProblem: ${data.problemId}`;
+});
         async function createRoom() {
             const handle = document.getElementById('p1-handle').value;
             try {
@@ -91,6 +113,18 @@
             } catch (err) {
                 document.getElementById('join-log').innerText = "Error: " + err.message;
             }
+        }
+
+
+        function triggerStartDuel() {
+            const handle1 = document.getElementById('p1-handle').value;
+            const handle2 = document.getElementById('p2-handle').value;
+            const rating = parseInt(document.getElementById('target-rating').value);
+            
+            if (!currentRoomId) return alert("Create or join a room first!");
+            if (!handle1 || !handle2) return alert("Need both handles!");
+
+            socket.emit('start_duel', { roomId: currentRoomId, handle1, handle2, targetRating: rating });
         }
     </script>
 </body>

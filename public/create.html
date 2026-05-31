@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CF Duels · Host a Duel</title>
+  <link rel="stylesheet" href="/css/output.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Teko:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --green: #00ff88;
+      --amber: #ffb700;
+      --red: #ff3b3b;
+      --bg: #080c0f;
+      --surface: #0d1318;
+      --surface-2: #111920;
+      --border: #1a2530;
+      --border-focus: #00ff8866;
+      --muted: #3a4a58;
+      --text: #c8d8e4;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      animation: gridDrift 20s linear infinite;
+    }
+
+    @keyframes gridDrift {
+      0%   { background-position: 0 0; }
+      100% { background-position: 48px 48px; }
+    }
+
+    .font-display { font-family: 'Teko', sans-serif; }
+
+    /* ── Navbar ── */
+    nav {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,12,15,0.85);
+      backdrop-filter: blur(6px);
+    }
+
+    .logo {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .logo span { color: var(--amber); }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.9rem;
+      text-decoration: none;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .back-btn:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+
+    /* ── Page layout ── */
+    .page {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+    }
+
+    .panel {
+      width: 100%;
+      max-width: 540px;
+    }
+
+    /* ── Panel header ── */
+    .panel-header {
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.4s ease 0.05s forwards;
+    }
+
+    .panel-tag {
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-tag::before {
+      content: '';
+      width: 20px;
+      height: 1px;
+      background: var(--green);
+      opacity: 0.6;
+    }
+
+    .panel-title {
+      font-family: 'Teko', sans-serif;
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #e8f4ff;
+      line-height: 1;
+    }
+
+    .panel-sub {
+      margin-top: 0.6rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    /* ── Form card ── */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 2.5rem;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.4s ease 0.15s forwards;
+    }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Field groups ── */
+    .field-group {
+      margin-bottom: 1.75rem;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .field-hint {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-top: 0.45rem;
+      opacity: 0.8;
+    }
+
+    /* ── Text input ── */
+    .field-input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .field-input::placeholder {
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    .field-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px var(--border-focus);
+    }
+
+    .field-input.error {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(255,59,59,0.15);
+    }
+
+    /* inline error message */
+    .field-error {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--red);
+      margin-top: 0.45rem;
+      display: none;
+    }
+
+    .field-error.visible { display: block; }
+
+    /* ── Rating select ── */
+    .rating-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+
+    .rating-opt {
+      display: none; /* hide native radio */
+    }
+
+    .rating-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.2rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 0.65rem 0.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .rating-label:hover {
+      border-color: var(--muted);
+    }
+
+    .rating-opt:checked + .rating-label {
+      border-color: var(--green);
+      background: rgba(0,255,136,0.06);
+    }
+
+    .rating-value {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #e8f4ff;
+      line-height: 1;
+    }
+
+    .rating-opt:checked + .rating-label .rating-value {
+      color: var(--green);
+    }
+
+    .rating-tier {
+      font-size: 0.55rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2rem 0;
+    }
+
+    /* ── Submit button ── */
+    .btn-submit {
+      width: 100%;
+      background: var(--green);
+      color: #080c0f;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      padding: 1rem;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: opacity 0.2s, transform 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      opacity: 0.88;
+    }
+
+    .btn-submit:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* loading state */
+    .btn-submit.loading .btn-text { opacity: 0; }
+    .btn-submit.loading .btn-spinner { display: block; }
+
+    .btn-spinner {
+      display: none;
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(8,12,15,0.3);
+      border-top-color: #080c0f;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Error banner ── */
+    .error-banner {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255,59,59,0.08);
+      border: 1px solid rgba(255,59,59,0.3);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: var(--red);
+      display: none;
+    }
+
+    .error-banner.visible { display: block; }
+
+    /* ── Info strip below card ── */
+    .info-strip {
+      margin-top: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      opacity: 0;
+      animation: fadeUp 0.4s ease 0.3s forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="grid-bg"></div>
+
+  <!-- Navbar -->
+  <nav>
+    <a href="index.html" class="logo">CF <span>DUELS</span></a>
+    <a href="index.html" class="back-btn">← Dashboard</a>
+  </nav>
+
+  <!-- Page -->
+  <main class="page">
+    <div class="panel">
+
+      <!-- Header -->
+      <div class="panel-header">
+        <div class="panel-tag">Step 01 · Host Configuration</div>
+        <h1 class="panel-title">Host a Duel</h1>
+        <p class="panel-sub">Configure your match settings and generate an arena.</p>
+      </div>
+
+      <!-- Form card -->
+      <div class="form-card">
+        <form id="create-form" novalidate>
+
+          <!-- Handle -->
+          <div class="field-group">
+            <label for="handle" class="field-label">Codeforces Handle</label>
+            <input
+              id="handle"
+              name="handle"
+              type="text"
+              class="field-input"
+              placeholder="e.g. tourist"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <div id="handle-error" class="field-error">Enter a valid Codeforces handle.</div>
+            <div class="field-hint"># Your public CF username — used to verify submissions.</div>
+          </div>
+
+          <!-- Target Rating -->
+          <div class="field-group">
+            <label class="field-label">Target Problem Rating</label>
+            <div class="rating-grid">
+
+              <input type="radio" name="rating" id="r800"  value="800"  class="rating-opt" checked />
+              <label for="r800" class="rating-label">
+                <span class="rating-value">800</span>
+                <span class="rating-tier">Newbie</span>
+              </label>
+
+              <input type="radio" name="rating" id="r1000" value="1000" class="rating-opt" />
+              <label for="r1000" class="rating-label">
+                <span class="rating-value">1000</span>
+                <span class="rating-tier">Pupil</span>
+              </label>
+
+              <input type="radio" name="rating" id="r1200" value="1200" class="rating-opt" />
+              <label for="r1200" class="rating-label">
+                <span class="rating-value">1200</span>
+                <span class="rating-tier">Pupil</span>
+              </label>
+
+              <input type="radio" name="rating" id="r1500" value="1500" class="rating-opt" />
+              <label for="r1500" class="rating-label">
+                <span class="rating-value">1500</span>
+                <span class="rating-tier">Specialist</span>
+              </label>
+
+              <input type="radio" name="rating" id="r1800" value="1800" class="rating-opt" />
+              <label for="r1800" class="rating-label">
+                <span class="rating-value">1800</span>
+                <span class="rating-tier">Expert</span>
+              </label>
+
+              <input type="radio" name="rating" id="r2100" value="2100" class="rating-opt" />
+              <label for="r2100" class="rating-label">
+                <span class="rating-value">2100</span>
+                <span class="rating-tier">Candidate</span>
+              </label>
+
+            </div>
+            <div class="field-hint"># Difficulty of the problem assigned to both players.</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Submit -->
+          <button type="submit" id="submit-btn" class="btn-submit">
+            <span class="btn-text">Generate Arena →</span>
+            <span class="btn-spinner"></span>
+          </button>
+
+          <!-- API error banner -->
+          <div id="error-banner" class="error-banner"></div>
+
+        </form>
+      </div>
+
+      <!-- Info strip -->
+      <div class="info-strip">
+        <span>Session · Encrypted</span>
+        <span>Token · Stored in Memory</span>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module">
+    import { createRoom } from '/js/api.js';
+
+    const form      = document.getElementById('create-form');
+    const handleEl  = document.getElementById('handle');
+    const handleErr = document.getElementById('handle-error');
+    const submitBtn = document.getElementById('submit-btn');
+    const errBanner = document.getElementById('error-banner');
+
+    // ── Helpers ────────────────────────────────────────────────
+    const setLoading = (on) => {
+      submitBtn.classList.toggle('loading', on);
+      submitBtn.disabled = on;
+    };
+
+    const showBanner = (msg) => {
+      errBanner.textContent = msg;
+      errBanner.classList.add('visible');
+    };
+
+    const hideBanner = () => {
+      errBanner.textContent = '';
+      errBanner.classList.remove('visible');
+    };
+
+    const validateHandle = (val) => {
+      // CF handles: 3–24 chars, letters/digits/hyphens/underscores
+      return /^[a-zA-Z0-9_\-]{3,24}$/.test(val.trim());
+    };
+
+    // Live validation: clear error once user fixes it
+    handleEl.addEventListener('input', () => {
+      if (validateHandle(handleEl.value)) {
+        handleEl.classList.remove('error');
+        handleErr.classList.remove('visible');
+      }
+    });
+
+    // ── Submit ──────────────────────────────────────────────────
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideBanner();
+
+      const handle = handleEl.value.trim();
+      const rating = Number(form.querySelector('input[name="rating"]:checked').value);
+
+      // Client-side validation
+      if (!validateHandle(handle)) {
+        handleEl.classList.add('error');
+        handleErr.classList.add('visible');
+        handleEl.focus();
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        // POST /api/rooms/create → { roomId, roomCode, token }
+        const { roomId, roomCode } = await createRoom({ handle, rating }); // token stored inside createRoom()
+
+        // Store token securely in sessionStorage (never in URL)
+        
+        sessionStorage.setItem('cf_handle', handle);
+        sessionStorage.setItem('cf_is_host', 'true');
+        sessionStorage.setItem('cf_rating', String(rating));
+
+        // Redirect — NO host=true flag, server owns that
+        window.location.href = `/arena.html?roomId=${roomId}&code=${roomCode}`;
+
+      } catch (err) {
+        showBanner(err.message || 'Failed to create room. Please try again.');
+        setLoading(false);
+      }
+    });
+  </script>
+
+</body>
+</html>

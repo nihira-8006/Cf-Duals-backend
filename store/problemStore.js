@@ -14,6 +14,7 @@ const getRandomUnsolvedProblem = async (targetRating, excludedProblemKeys) => {
             `SELECT * FROM problems 
              WHERE rating BETWEEN $1 AND $2 
              AND CONCAT(contest_id, '-', index) != ALL($3)
+             AND contest_id>=1500
              ORDER BY RANDOM() 
              LIMIT 1`,
             [minRating, maxRating, excludedProblemKeys]

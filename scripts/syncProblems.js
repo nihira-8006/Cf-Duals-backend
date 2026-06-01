@@ -17,12 +17,17 @@ const syncProblems = async () => {
 
         const client = await pool.connect();
         try {
-            await client.query('BEGIN');
+            let processed = 0;
             
             for (const p of problems) {
                 // Skip interactive/special problems and ones without a rating
                 if (!p.rating || p.tags.includes('*special') || p.tags.includes('interactive')) {
                     continue;
+                }
+                processed++;
+
+                if (processed % 500 === 0) {
+                    console.log(`Processed ${processed} problems`);
                 }
 
                 await client.query(
@@ -34,10 +39,10 @@ const syncProblems = async () => {
                 );
             }
             
-            await client.query('COMMIT');
+      
             console.log('🚀 Successfully synced all problems to the database!');
         } catch (dbError) {
-            await client.query('ROLLBACK');
+  
             throw dbError;
         } finally {
             client.release();

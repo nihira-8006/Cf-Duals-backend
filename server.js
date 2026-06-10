@@ -129,6 +129,61 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`🔌 User disconnected: ${socket.id}`);
     });
+
+
+
+    // 1. Relay the offer to the room
+    socket.on('offer_draw', (data) => {
+        socket.to(data.roomId).emit('draw_offered', { sender: data.sender });
+    });
+
+    // 2. Relay the decline back to the room
+    socket.on('decline_draw', (data) => {
+        socket.to(data.roomId).emit('draw_declined', { sender: data.sender });
+    });
+
+    // 3. Handle the Accepted Draw
+    socket.on('accept_draw', async (data) => {
+        const { roomId, player1, player2, problem, startTimeMs } = data;
+        const deltaSeconds = Math.floor((Date.now() - startTimeMs) / 1000);
+
+        // Immediately stop polling Codeforces
+        cfService.stopWatching(roomId, player1);
+        cfService.stopWatching(roomId, player2);
+
+        try {
+            const u1Res = await pool.query('SELECT id, handle FROM users WHERE LOWER(handle) = LOWER($1)', [player1]);
+            const u2Res = await pool.query('SELECT id, handle FROM users WHERE LOWER(handle) = LOWER($1)', [player2]);
+
+            if (u1Res.rows.length > 0 && u2Res.rows.length > 0) {
+                const u1 = u1Res.rows[0];
+                const u2 = u2Res.rows[0];
+
+                const historyQuery = `INSERT INTO user_history (id, user_id, opponent_handle, problem_contest_id, problem_index, source, outcome, time_taken_seconds) VALUES ($1, $2, $3, $4, $5, 'local', 'draw', $6)`;
+                
+                // Record the 'draw' for both players
+                await pool.query(historyQuery, [crypto.randomUUID(), u1.id, u2.handle, problem.contest_id, problem.index, deltaSeconds]);
+                await pool.query(historyQuery, [crypto.randomUUID(), u2.id, u1.handle, problem.contest_id, problem.index, deltaSeconds]);
+
+                // Update total_matches, but DO NOT increase total_wins
+                await pool.query('UPDATE users SET total_matches = total_matches + 1 WHERE LOWER(handle) IN (LOWER($1), LOWER($2))', [player1, player2]);
+            }
+
+            // Delete the Room
+            await pool.query("DELETE FROM rooms WHERE id = $1", [roomId]);
+            console.log(`🤝 Room ${roomId} deleted. ${player1} and ${player2} drew.`);
+
+        } catch (dbErr) {
+            console.error('❌ DB Update Failed on Draw:', dbErr.message);
+        }
+
+        // Broadcast the peaceful end of the duel to BOTH screens
+        io.to(roomId).emit('duel_ended', {
+            winner: 'Draw',
+            message: `🤝 Match ended in a draw! Both players agreed.`,
+            problemId: `${problem.contest_id}${problem.index}`
+        });
+    });
 });
 
 // 4. Initialize Database and Start Server
